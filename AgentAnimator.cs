@@ -37,6 +37,20 @@ public class AgentAnimator : MonoBehaviour {
         animator.SetBool("IsAiming", isAiming);
     }
 
+    public void PlayDyingAnim() {
+        int randomIndex = Random.Range(1, 3);
+        animator.SetTrigger("Die" + randomIndex);
+    }
+
+    public void PlayPunchingAnim() {
+        int randomIndex = Random.Range(1, 4);
+        animator.SetTrigger("Punch" + randomIndex);
+    }
+
+    public void PlayHitAnim() {
+        animator.SetTrigger("Hit");
+    }
+
     private int GetDirectionNumFromMovingAngle(float angle) {
         int directionNum = 0;
         if (angle >= -22.5f && angle < 22.5f)
@@ -56,5 +70,9 @@ public class AgentAnimator : MonoBehaviour {
         else
             directionNum = 4;  // Back-Right
         return directionNum;
+    }
+
+    public void PlayPunchingPrepareAnim() {
+        animator.SetTrigger("PunchPrepare");
     }
 }

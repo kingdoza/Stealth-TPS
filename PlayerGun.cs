@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class PlayerGun : Gun {
@@ -69,5 +71,26 @@ public class PlayerGun : Gun {
             yield return null;
         }
         transform.localRotation = Quaternion.Euler(targetRotation);
+    }
+
+    protected override RaycastHit[] GetBulletRayHits(out Ray ray) {
+        Vector3 shootingDir;
+        if(isSighting)
+            //shootingDir = cameraController.GetScreenCenterRay().direction;
+            shootingDir = transform.forward;
+        else {
+            shootingDir = GetRandomDirectionWithAngle();
+        }
+        //Ray ray = cameraController.GetScreenCenterRay();
+        ray = new Ray(transform.position, shootingDir);
+        List<RaycastHit> hits = Physics.RaycastAll(ray, gunRange, hittableMask).ToList();
+        hits.Sort((a, b) => a.distance.CompareTo(b.distance));
+        if(hits.Count >= 2 && hits[0].collider.GetComponent<Agent>() != null) {
+            hits.RemoveRange(2, hits.Count - 2);
+        } else if(hits.Count >= 1) {
+            hits.RemoveRange(1, hits.Count - 1);
+        }
+        Debug.DrawRay(transform.position, shootingDir * gunRange, Color.red, 1f);
+        return hits.ToArray();
     }
 }

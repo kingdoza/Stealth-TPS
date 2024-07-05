@@ -94,7 +94,7 @@ public class PlayerController3D : Agent, IEnemyReactable {
         }
     }
 
-    protected override void TakeHit(int damage) {
+    public override void TakeHit(int damage) {
         base.TakeHit(damage);
     }
 

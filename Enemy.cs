@@ -2,10 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
 
+internal enum WeaponState {
+    Gun, Punch
+}
 public class Enemy : Agent {
     [SerializeField] private float viewRadius;
     [SerializeField] [Range(0, 360)] private float viewAngle;
@@ -18,20 +20,25 @@ public class Enemy : Agent {
     private Vector3 moveTargetPos;
     private IEnumerator approachingProcess;
     private Vector3 previousPos;
-    [SerializeField] private Transform head;
     public Transform Head => head;
     [SerializeField] private LayerMask soundMask;
     [SerializeField] private int importance = 50;
     public int Importance => importance;
     [SerializeField] private int feeling = 50; //0~49 50 51~100
     public int Feeling => feeling;
+    private Punch punch;
+    private WeaponState weaponState = WeaponState.Punch;
 
     protected override void Awake() {
+        punch = GetComponent<Punch>();
         base.Awake();
         SetFeelingColor();
+        gun = GetComponentInChildren<EnemyGun>();
     }
 
     protected override void Start() {
+        //SetWeaponToPunch();
+        SetWeaponToGun();
         base.Start();
         isAlive = true;
         previousPos = transform.position;
@@ -46,7 +53,7 @@ public class Enemy : Agent {
     protected override void Update() {
         base.Update();
         CalculateMovingDir();
-        //Debug.Log(currentReaction);
+        //Debug.Log(movingState);
     }
 
     private void CalculateMovingDir() {
@@ -101,28 +108,64 @@ public class Enemy : Agent {
 
     private IEnumerator DoAlertProcedures(IEnemyReactable reactable) {
         yield return StartCoroutine(KeepTurningTo(reactable.Position, 10f));
-        //Debug.Log("Start Alert");
         StartCoroutine(StartApproachingTo(reactable.Transform, MovingState.Crouching));
         bool isTargetInGunRangePre = false;
         IEnumerator shootingProcess = KeepShootingTarget(reactable.Transform);
         while(currentReaction == EnemyReaction.Alert) {
             yield return null;
-            AdjustMoveSpeedTo(reactable);
-            bool isTargetInGunRangeCur = IsTargetInGunRange(reactable);
-            if(isTargetInGunRangeCur == isTargetInGunRangePre)
-                continue;
-            isTargetInGunRangePre = isTargetInGunRangeCur;
-            if(isTargetInGunRangeCur) {
-                StartCoroutine(shootingProcess);
+            AdjustAlertMoveSpeedTo(reactable);
+            if(weaponState == WeaponState.Gun) {
+                //TryShoot(reactable, ref isTargetInGunRangePre, ref shootingProcess);
             }
             else {
-                StopCoroutine(shootingProcess);
+                //TryPunch(reactable);
             }
         }
     }
 
-    private void AdjustMoveSpeedTo(IEnemyReactable reactable) {
+    private void TryShoot(IEnemyReactable reactable, ref bool isTargetInGunRangePre, ref IEnumerator shootingProcess) {
+        bool isTargetInGunRangeCur = IsTargetInGunRange(reactable);
+        if(isTargetInGunRangeCur == isTargetInGunRangePre)
+            return;
+        isTargetInGunRangePre = isTargetInGunRangeCur;
+        if(isTargetInGunRangeCur) {
+            StartCoroutine(shootingProcess);
+        }
+        else {
+            StopCoroutine(shootingProcess);
+        }
+    }
+
+    private void TryPunch(IEnemyReactable reactable) {
+        float distance = Vector3.Distance(reactable.Position, transform.position);
+        //agentAnimator.PlayPunchingPrepareAnim();
+        if(punch.TryStartHit()) {
+            agentAnimator.PlayPunchingAnim();
+        }
+    }
+
+    private void SetWeaponToGun() {
+        weaponState = WeaponState.Gun;
+    }
+
+    private void SetWeaponToPunch() {
+        weaponState = WeaponState.Punch;
+    }
+
+    private void AdjustAlertMoveSpeedTo(IEnemyReactable reactable) {
         float distanceToTarget = Vector3.Distance(transform.position, reactable.Transform.position);
+        if(weaponState == WeaponState.Punch) {
+            if(distanceToTarget >= 1.2f) {
+                movingState = MovingState.Running;
+                punch.ResetHitDelay();
+            }
+            else {
+                movingState = MovingState.Stop;
+                TryPunch(reactable);
+            }
+            return;
+        }
+
         if(distanceToTarget >= 20) {
             movingState = MovingState.Running;
         }
@@ -203,7 +246,7 @@ public class Enemy : Agent {
     private IEnumerator ApproachingTo(Vector3 targetPos) {
         navMesh.speed = GetMoveSpeedFromCurrentState();
         navMesh.SetDestination(targetPos);
-        while(DistanceOnXZPlane(transform.position, targetPos) > 1.5f) {
+        while(DistanceOnXZPlane(transform.position, targetPos) > 1f) {
             yield return null;
         }
         movingState = MovingState.Stop;
@@ -212,10 +255,11 @@ public class Enemy : Agent {
         yield return StartCoroutine(KeepTurningTo(targetPos, 5f));
     }
 
+/*
     private IEnumerator ApproachingTo(Transform target) {
         navMesh.speed = GetMoveSpeedFromCurrentState();
         navMesh.SetDestination(target.position);
-        while(DistanceOnXZPlane(transform.position, target.position) > 1.5f) {
+        while(DistanceOnXZPlane(transform.position, target.position) > 1f) {
             navMesh.speed = GetMoveSpeedFromCurrentState();
             navMesh.SetDestination(target.position);
             yield return null;
@@ -224,6 +268,16 @@ public class Enemy : Agent {
         navMesh.speed = GetMoveSpeedFromCurrentState();
         navMesh.SetDestination(transform.position);
         yield return StartCoroutine(KeepTurningTo(target.position, 5f));
+    } */
+
+    private IEnumerator ApproachingTo(Transform target) {
+        StartCoroutine(KeepTurningTo(target, 5));
+        while(target) {
+            navMesh.speed = GetMoveSpeedFromCurrentState();
+            navMesh.SetDestination(target.position);
+            yield return null;
+        }
+        //yield return StartCoroutine(KeepTurningTo(target.position, 5f));
     }
 
     private IEnumerator DoDoubtProcedures(Vector3 targetPos) {
@@ -320,18 +374,18 @@ public class Enemy : Agent {
         if((UnityEngine.Object)reactable == this)
             return false;
         Vector3 targetPos = reactable.Position;
-        Vector3 dirToTarget = (targetPos - transform.position).normalized;
-        //Debug.Log(reactable + ", " + (Vector3.Angle(transform.forward, dirToTarget) > viewAngle / 2));
-        if (Vector3.Angle(transform.forward, dirToTarget) > viewAngle / 2)
+        Vector3 dirToTarget = (targetPos - head.position).normalized;
+        //Debug.Log(reactable + ", " + Vector3.Angle(head.forward, dirToTarget));
+        if (Vector3.Angle(head.forward, dirToTarget) > viewAngle / 2)
             return false;
-        float dstToTarget = Vector3.Distance(transform.position, targetPos);
+        float dstToTarget = Vector3.Distance(head.position, targetPos);
         //Debug.Log(reactable + ", " + Physics.Raycast(head.position, dirToTarget, dstToTarget, obstacleMask));
         if (Physics.Raycast(head.position, dirToTarget, dstToTarget, obstacleMask))
             return false;
         return true;
     }
 
-    protected override void TakeHit(int damage) {
+    public override void TakeHit(int damage) {
         base.TakeHit(damage);
     }
 
@@ -341,8 +395,12 @@ public class Enemy : Agent {
 
     public override void Die() {
         isAlive = false;
+        GetComponent<Collider>().enabled = false;
+        currentReaction = EnemyReaction.None;
         navMesh.SetDestination(transform.position);
         StopAllCoroutines();
+        movingState = MovingState.Stop;
+        agentAnimator.PlayDyingAnim();
     }
 
     private void OnTriggerEnter(Collider other) {
@@ -362,7 +420,8 @@ public class Enemy : Agent {
         else {
             feelingColor = Color.Lerp(Color.white, Color.blue, (feeling - 50f) / 50f);
         }
-        feelingColor.a = 0.75f;
+        //feelingColor.a = 0.75f;
         transform.GetChild(1).GetComponent<Renderer>().material.color = feelingColor;
+        //transform.GetChild(1).GetComponent<Renderer>().material.SetColor("_RimColor", feelingColor);
     }
 }

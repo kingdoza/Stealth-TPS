@@ -60,7 +60,7 @@ public class BulletHole : PooledObject, IEnemyReactable {
 
     public void ShowNonPersonHitEffects() {
         spriteRenderer.color = Color.white;
-        transform.localScale = new Vector3(0.025f, 0.025f, 0.025f);
+        transform.localScale = new Vector3(0.015f, 0.015f, 0.015f);
         int randomIndex = Random.Range(0, nonPersonhitClips.Length);
         audioSource.clip = nonPersonhitClips[randomIndex];
         audioSource.volume = 0.18f;

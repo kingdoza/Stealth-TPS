@@ -10,7 +10,6 @@ public class BulletHolePool : ObjectPool {
         if(agentHit == null) {
             bulletHole.ShowNonPersonHitEffects();
         } else {
-            agentHit.Die();
             bulletHole.ShowPersonHitEffects();
         }
     }

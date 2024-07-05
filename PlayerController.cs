@@ -1,12 +1,14 @@
+using System.Security.Cryptography;
 using UnityEngine;
 
 public class PlayerController : Agent, IEnemyReactable {
     [SerializeField] private float rotationSensitivity;
     private Camera mainCamera;
     public EnemyReaction EnemyReaction => EnemyReaction.None;
-    public Vector3 Position => transform.position;
+    public Vector3 Position => head.position;
     public Vector3 HitOrigin => transform.position;
     public Transform Transform => transform;
+    private bool canMove = true;
 
     protected override void Awake() {
         base.Awake();
@@ -15,8 +17,17 @@ public class PlayerController : Agent, IEnemyReactable {
         gun = GetComponentInChildren<PlayerGun>();
     }
 
+    protected override void Start() {
+        base.Start();
+        GameManager.Instance.uiManager.UpdateHealthStat(currentHealth);
+    }
+
     protected override void Update() {
         base.Update();
+        if(canMove == false) {
+            movingState = MovingState.Stop;
+            return;
+        }
         CheckMoveState();
         CheckRotation();
         CheckMovement();
@@ -88,12 +99,26 @@ public class PlayerController : Agent, IEnemyReactable {
         }
     }
 
-    protected override void TakeHit(int damage) {
+    public override void TakeHit(int damage) {
         base.TakeHit(damage);
+        DisenableMovement();
+        isAiming = false;
+        gun.CancelSight();
+        agentAnimator.PlayHitAnim();
+        GameManager.Instance.uiManager.UpdateHealthStat(currentHealth);
+    }
+
+    public void DisenableMovement() {
+        canMove = false;
+        movingState = MovingState.Stop;
+    }
+
+    private void EnableMovement() {
+        canMove = true;
     }
 
     protected override void PlayWalkingSound() {
-        soundManager.PlayAudioSource3DWithSoundWave(walkingSoundSource, transform.position);
+        soundManager.PlayAudioSource3DWithSoundWave(walkingSoundSource, transform.position + transform.up * 0.02f);
     }
 
     public override void Die() {

@@ -20,11 +20,13 @@ public abstract class Agent : MonoBehaviour {
     protected Vector3 movingDelta;
     protected bool isAiming = false;
     protected Gun gun;
+    protected Transform head;
 
     protected virtual void Awake() {
         gun = GetComponentInChildren<Gun>();
         agentAnimator = GetComponent<AgentAnimator>();
         walkingSoundSource = GetComponent<AudioSource>();
+        head = transform.Find("Head");
         currentHealth = maxHealth;
     }
 
@@ -72,6 +74,15 @@ public abstract class Agent : MonoBehaviour {
         transform.rotation = rotation;
     }
 
+    protected IEnumerator KeepTurningTo(Transform target, float turnSpeed) {
+        while(target) {
+            Vector3 direction = ProjectToXZPlane(target.position - transform.position);
+            Quaternion rotation = Quaternion.LookRotation(direction);
+            transform.rotation = Quaternion.Slerp(transform.rotation, rotation, Time.deltaTime * turnSpeed);
+            yield return null;
+        }
+    }
+
     protected void LookAt(Vector3 targetPos) {
         targetPos = ProjectToXZPlane(targetPos);
         transform.LookAt(targetPos);
@@ -96,7 +107,7 @@ public abstract class Agent : MonoBehaviour {
         return walkingVolume;
     }
 
-    protected virtual void TakeHit(int damage) {
+    public virtual void TakeHit(int damage) {
         currentHealth -= damage;
         if (currentHealth <= 0) {
             Die();

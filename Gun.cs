@@ -1,21 +1,24 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEditor.PackageManager;
 using UnityEngine;
  
 [RequireComponent(typeof(LineRenderer))]
-public class Gun : MonoBehaviour {
+public abstract class Gun : Weapon {
+    [SerializeField] protected int damage = 5;
     [SerializeField] private AudioClip[] fireEffects;
     private AudioSource audioSource;
-    private bool isSighting = false;
+    protected bool isSighting = false;
     private LineRenderer laserLine;
-    private float gunRange = 50f;
+    protected float gunRange = 50f;
     [SerializeField] private float fireDelay = 0.07f;
     protected float remainedFireDelay;
     //private float originAngleX;
-    [SerializeField] private LayerMask hittableMask;
+    [SerializeField] protected LayerMask hittableMask;
     [SerializeField] private GameObject laserPoint;
     [SerializeField] [Range(0, 360)] private float nonSightedAngle;
-    [SerializeField] private BulletHolePool bulletHolePool;
+    [SerializeField] protected BulletHolePool bulletHolePool;
     //private CameraController3D cameraController;
  
     protected virtual void Awake() {
@@ -95,10 +98,24 @@ public class Gun : MonoBehaviour {
         int randomIndex = Random.Range(0, fireEffects.Length);
         audioSource.clip = fireEffects[randomIndex];
         GameManager.Instance.soundManager.PlayAudioSource(audioSource);
-        ShootRaycast();
+        RaycastHit[] hits = GetBulletRayHits(out Ray ray);
+        HitTargets(hits, ray);
+        //ShootRaycast;
         //cameraController.RecoilUpDown();
         //StartCoroutine(RecoilUpDown());
     }
+
+    private void HitTargets(RaycastHit[] hits, Ray ray) {
+        foreach(RaycastHit hit in hits) {
+            bulletHolePool.MakeBulletHole(hit, ray);
+            Agent agentHit = hit.collider.GetComponent<Agent>();
+            if(agentHit != null) {
+                agentHit.TakeHit(damage);
+            }
+        }
+    }
+
+    protected abstract RaycastHit[] GetBulletRayHits(out Ray ray);
 
     private void ShootRaycast() {
         Vector3 shootingDir;
@@ -110,18 +127,21 @@ public class Gun : MonoBehaviour {
         }
         //Ray ray = cameraController.GetScreenCenterRay();
         Ray ray = new Ray(transform.position, shootingDir);
-        RaycastHit[] hits = Physics.RaycastAll(ray, gunRange, hittableMask);
-        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-        if(hits.Length >= 2 && hits[0].collider.GetComponent<Agent>() != null) {
-            bulletHolePool.MakeBulletHole(hits[0], ray);
-            bulletHolePool.MakeBulletHole(hits[1], ray);
-        } else if(hits.Length >= 1) {
-            bulletHolePool.MakeBulletHole(hits[0], ray);
+        List<RaycastHit> hits = Physics.RaycastAll(ray, gunRange, hittableMask).ToList();
+        hits.Sort((a, b) => a.distance.CompareTo(b.distance));
+        if(hits.Count >= 2 && hits[0].collider.GetComponent<Agent>() != null) {
+            hits.RemoveRange(2, hits.Count - 2);
+        } else if(hits.Count >= 1) {
+            hits.RemoveRange(1, hits.Count - 1);
+        }
+        foreach(RaycastHit hit in hits) {
+            hit.collider.GetComponent<Agent>().TakeHit(damage);
+            bulletHolePool.MakeBulletHole(hit, ray);
         }
         Debug.DrawRay(transform.position, shootingDir * gunRange, Color.red, 1f);
     }
 
-    private Vector3 GetRandomDirectionWithAngle() {
+    protected Vector3 GetRandomDirectionWithAngle() {
         float halfAngle = nonSightedAngle / 2f;
         float randomAngle = Random.Range(-halfAngle, halfAngle);
         Quaternion rotation = Quaternion.AngleAxis(randomAngle, transform.up);

@@ -37,9 +37,7 @@ public class EnemyStateUI : MonoBehaviour {
                 ++i;
                 continue;
             }
-            Vector3 targetPos = mainCamera.WorldToScreenPoint(enemy.Head.position);
-            targetPos += Vector3.up * stateOffset;
-            stateList[i].position = targetPos;
+            SetStateUIPosition(enemy, i);
             ++i;
         }
     }
@@ -47,11 +45,13 @@ public class EnemyStateUI : MonoBehaviour {
     private void ShowReactionState() {
         int i = 0;
         foreach (Enemy enemy in enemyList) {
-            if(enemy.Reaction == EnemyReaction.None)
+            if(enemy.Reaction == EnemyReaction.None) {
                 stateList[i].gameObject.SetActive(false);
-            else
-                stateList[i].gameObject.SetActive(true);
-            stateList[i].GetComponent<Image>().color = reactionColors[enemy.Reaction];
+                continue;
+            }
+            SetStateUIPosition(enemy, i);
+            stateList[i].gameObject.SetActive(true);
+            stateList[i].GetChild(0).GetComponent<Image>().color = reactionColors[enemy.Reaction];
             ++i;
         }
     }
@@ -63,6 +63,41 @@ public class EnemyStateUI : MonoBehaviour {
             stateList.Add(stateInstance.GetComponent<RectTransform>());
             stateInstance.transform.SetParent(transform);
             stateInstance.SetActive(false);
+        }
+    }
+
+    private void SetStateUIPosition(Enemy enemy, int index) {
+        Vector3 desiredPos = mainCamera.WorldToScreenPoint(enemy.Head.position);
+        desiredPos += Vector3.up * stateOffset;
+        ClampToScreenEdges(stateList[index], ref desiredPos);
+        stateList[index].position = desiredPos;
+    }
+
+    private void ClampToScreenEdges(RectTransform uiElem, ref Vector3 desiredPos) {
+        Vector3[] corners = new Vector3[4];
+        uiElem.GetWorldCorners(corners);
+
+        Vector3 leftBotRelativePos = corners[0] - uiElem.position;
+        Vector3 rightTopRelativePos = corners[2] - uiElem.position;
+
+        Vector3 min = desiredPos + leftBotRelativePos;
+        Vector3 max = desiredPos + rightTopRelativePos;
+
+        Vector2 screenMin = Vector2.zero;
+        Vector2 screenMax = new Vector2(Screen.width, Screen.height);
+
+        // 최소, 최대 값이 화면 경계를 벗어나는지 확인하고 조정합니다.
+        if (min.x < screenMin.x) {
+            desiredPos.x += screenMin.x - min.x;
+        }
+        if (max.x > screenMax.x) {
+            desiredPos.x -= max.x - screenMax.x;
+        }
+        if (min.y < screenMin.y) {
+            desiredPos.y += screenMin.y - min.y;
+        }
+        if (max.y > screenMax.y) {
+            desiredPos.y -= max.y - screenMax.y;
         }
     }
 }
