@@ -75,4 +75,21 @@ public class AgentAnimator : MonoBehaviour {
     public void PlayPunchingPrepareAnim() {
         animator.SetTrigger("PunchPrepare");
     }
+
+    public void PlayShootAnim() {
+        animator.SetTrigger("Shoot");
+    }
+
+    public void PlayReloadingAnim() {
+        animator.SetTrigger("Reload");
+    }
+
+    public void StopReloadingAnim() {
+        animator.SetTrigger("CancelReload");
+    }
+
+    public bool IsPunchingAnimPlaying() {
+        AnimatorStateInfo stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+        return stateInfo.IsName("Hook Punch") || stateInfo.IsName("Cross Punch") || stateInfo.IsName("Normal Punch");
+    }
 }

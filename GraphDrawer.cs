@@ -55,6 +55,8 @@ public class GraphDrawer : MonoBehaviour {
     }
 
     public void ApplyTime() {
+        if(stageManager == null)
+            stageManager = GameManager.Instance.stageManager;
         TimeOfDay currentTime = stageManager.CurrentTime;
         ampmUI.text = currentTime.GetAMPM();
         timeUI.text = currentTime.ToStringAMPM();

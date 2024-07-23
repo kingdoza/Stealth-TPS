@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-public class PlayerGun : Gun {
+public class PlayerGun : Gun, IStageRun {
     private CameraController3D cameraController;
     private float originAngleX;
     private int currentBulletInMagazin = 0;
     [SerializeField] private int maxBulletsInMagazin;
     [SerializeField] private int totalBullets;
+    public int TotalBullets => totalBullets;
+    public bool IsRunning { get; set; } = false;
 
     protected override void Awake() {
         base.Awake();
@@ -16,15 +18,20 @@ public class PlayerGun : Gun {
         cameraController = Camera.main.GetComponent<CameraController3D>();
     }
 
+    public void Run(){
+        IsRunning = true;
+        bulletHolePool = FindObjectOfType<BulletHolePool>();
+    }
+
     private void Start() {
         Reload();
     }
 
     public override void PullTrigger() {
-        if(currentBulletInMagazin <= 0) {
-            Reload();
+        if(IsRunning == false)
             return;
-        }
+        if(currentBulletInMagazin <= 0)
+            return;
         base.PullTrigger();
     }
 
@@ -32,22 +39,33 @@ public class PlayerGun : Gun {
         base.Fire();
         currentBulletInMagazin--;
         GameManager.Instance.uiManager.gunInfoUI.UpdateBulletUI(currentBulletInMagazin, totalBullets);
-        if(currentBulletInMagazin <= 0) {
-            Reload();
-        }
+        //if(currentBulletInMagazin <= 0) {
+            //Reload();
+        //}
         StartCoroutine(RecoilUpDown());
     }
 
-    private void Reload() {
+    public bool CanReload() {
+        return currentBulletInMagazin < maxBulletsInMagazin && totalBullets > 0;
+    }
+
+    public bool IsMagazinEmpty() {
+        return currentBulletInMagazin <= 0;
+    }
+
+    public void Reload() {
         if(maxBulletsInMagazin <= 0)
             return;
-        int bulletsToReload = (totalBullets < maxBulletsInMagazin) ? totalBullets : maxBulletsInMagazin;
+        int bulletsToReload = maxBulletsInMagazin - currentBulletInMagazin;
+        if(bulletsToReload > totalBullets)
+            bulletsToReload = totalBullets;
         totalBullets -= bulletsToReload;
         currentBulletInMagazin += bulletsToReload;
         GameManager.Instance.uiManager.gunInfoUI.UpdateBulletUI(currentBulletInMagazin, totalBullets);
     }
 
     private IEnumerator RecoilUpDown() {
+        Debug.Log("recoild");
         const float RecoilOffset = 2f;
         const float RecoilPower = 120f;
         float currentAngleX = transform.localRotation.eulerAngles.x;
@@ -73,24 +91,33 @@ public class PlayerGun : Gun {
         transform.localRotation = Quaternion.Euler(targetRotation);
     }
 
-    protected override RaycastHit[] GetBulletRayHits(out Ray ray) {
-        Vector3 shootingDir;
+    protected override RaycastHit[] GetBulletRayHits() {
         if(isSighting)
             //shootingDir = cameraController.GetScreenCenterRay().direction;
-            shootingDir = transform.forward;
+            SetLaserPointPos(out shootRay);
         else {
-            shootingDir = GetRandomDirectionWithAngle();
+            Vector3 shootingDir = GetRandomDirectionWithAngle();
+            shootRay = new Ray(muzzle.position, shootingDir * gunRange);
         }
         //Ray ray = cameraController.GetScreenCenterRay();
-        ray = new Ray(transform.position, shootingDir);
-        List<RaycastHit> hits = Physics.RaycastAll(ray, gunRange, hittableMask).ToList();
+        List<RaycastHit> hits = Physics.RaycastAll(shootRay, gunRange, hittableMask).ToList();
         hits.Sort((a, b) => a.distance.CompareTo(b.distance));
         if(hits.Count >= 2 && hits[0].collider.GetComponent<Agent>() != null) {
             hits.RemoveRange(2, hits.Count - 2);
         } else if(hits.Count >= 1) {
             hits.RemoveRange(1, hits.Count - 1);
         }
-        Debug.DrawRay(transform.position, shootingDir * gunRange, Color.red, 1f);
+        Debug.DrawRay(muzzle.position, shootRay.direction * gunRange, Color.red, 1f);
         return hits.ToArray();
+    }
+
+    protected override void HitTargets(RaycastHit[] hits, Ray ray) {
+        foreach(RaycastHit hit in hits) {
+            bulletHolePool.MakeBulletHole(hit, ray);
+            Agent agentHit = hit.collider.GetComponent<Enemy>();
+            if(agentHit == null)
+                return;
+            agentHit.TakeHit(damage);
+        }
     }
 }

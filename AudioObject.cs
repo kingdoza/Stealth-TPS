@@ -4,7 +4,7 @@ using UnityEngine;
 public class AudioObject : PooledObject {
     [SerializeField] private float soundExtendSpeed;
     //private SoundWave soundWave;
-    private Transform soundWave;
+    private SoundWave soundWave;
     private AudioSource audioSource;
 
 
@@ -12,7 +12,7 @@ public class AudioObject : PooledObject {
         base.Awake();
         audioSource = GetComponent<AudioSource>();
         //soundWave = transform.GetComponentInChildren<SoundWave>();
-        soundWave = transform.GetChild(0);
+        soundWave = transform.GetChild(0).GetComponent<SoundWave>();
         soundWave.gameObject.SetActive(false);
     }
 
@@ -46,8 +46,8 @@ public class AudioObject : PooledObject {
         audioSource.spatialBlend = 1;
         audioSource.Play();
         StartCoroutine(DelayDestroy());
-        soundWave.position = transform.position + Vector3.up * 0.01f;
-        soundWave.localScale = Vector3.zero;
+        soundWave.transform.position = transform.position + Vector3.up * 0.01f;
+        soundWave.transform.localScale = Vector3.zero;
         soundWave.gameObject.SetActive(true);
         StartCoroutine(KeepExtendingSoundWave());
     }
@@ -60,7 +60,7 @@ public class AudioObject : PooledObject {
 
     private IEnumerator KeepExtendingSoundWave() {
         while(gameObject.activeSelf) {
-            soundWave.localScale += Vector3.one * audioSource.volume * soundExtendSpeed * Time.deltaTime;
+            soundWave.transform.localScale += Vector3.one * audioSource.volume * soundExtendSpeed * Time.deltaTime;
             yield return null;
         }
     }

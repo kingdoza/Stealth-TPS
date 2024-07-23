@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor.PackageManager;
 using UnityEngine;
- 
+using UnityEngine.Animations;
+
 [RequireComponent(typeof(LineRenderer))]
 public abstract class Gun : Weapon {
     [SerializeField] protected int damage = 5;
@@ -13,12 +14,16 @@ public abstract class Gun : Weapon {
     private LineRenderer laserLine;
     protected float gunRange = 50f;
     [SerializeField] private float fireDelay = 0.07f;
+    public float FireDelay => fireDelay;
     protected float remainedFireDelay;
     //private float originAngleX;
     [SerializeField] protected LayerMask hittableMask;
     [SerializeField] private GameObject laserPoint;
     [SerializeField] [Range(0, 360)] private float nonSightedAngle;
     [SerializeField] protected BulletHolePool bulletHolePool;
+    [SerializeField] protected Transform muzzle;
+    public Transform Muzzle => muzzle;
+    protected Ray shootRay = new Ray();
     //private CameraController3D cameraController;
  
     protected virtual void Awake() {
@@ -47,8 +52,8 @@ public abstract class Gun : Weapon {
         } */
         if(!isSighting)
             return;
-        SetLaserPointPos(out Ray ray);
-        if (Physics.Raycast(transform.position, ray.direction, out RaycastHit hit, gunRange, hittableMask)) {
+        SetLaserPointPos(out shootRay);
+        if (Physics.Raycast(muzzle.position, shootRay.direction, out RaycastHit hit, gunRange, hittableMask)) {
             //laserPoint.transform.position = hit.point;    //3D레이저포인터
             laserPoint.transform.position = hit.point + hit.normal * 0.015f;
             laserPoint.transform.rotation = Quaternion.LookRotation(hit.normal);
@@ -57,14 +62,14 @@ public abstract class Gun : Weapon {
         }
         else {
             laserPoint.SetActive(false);
-            laserLine.SetPosition(1, transform.position + ray.direction * gunRange);
+            laserLine.SetPosition(1, muzzle.position + shootRay.direction * gunRange);
         }
     }
 
-    private void SetLaserPointPos(out Ray ray) {
-        laserLine.SetPosition(0, transform.position);
-        ray = new Ray(transform.position, transform.forward * gunRange);
-        laserLine.SetPosition(1, transform.position + ray.direction * gunRange);
+    protected void SetLaserPointPos(out Ray ray) {
+        laserLine.SetPosition(0, muzzle.position);
+        ray = new Ray(muzzle.position, transform.forward * gunRange);
+        laserLine.SetPosition(1, muzzle.position + ray.direction * gunRange);
     }
 
     public void SightAfterDelay(float delay) {
@@ -82,6 +87,7 @@ public abstract class Gun : Weapon {
     }
 
     public void CancelSight() {
+        CancelInvoke();
         isSighting = false;
         laserPoint.SetActive(false);
         laserLine.enabled = false;
@@ -98,35 +104,58 @@ public abstract class Gun : Weapon {
         int randomIndex = Random.Range(0, fireEffects.Length);
         audioSource.clip = fireEffects[randomIndex];
         GameManager.Instance.soundManager.PlayAudioSource(audioSource);
-        RaycastHit[] hits = GetBulletRayHits(out Ray ray);
-        HitTargets(hits, ray);
+        RaycastHit[] hits = GetBulletRayHits();
+        HitTargets(hits, shootRay);
         //ShootRaycast;
         //cameraController.RecoilUpDown();
         //StartCoroutine(RecoilUpDown());
     }
 
+    protected abstract void HitTargets(RaycastHit[] hits, Ray ray);
+
+/*
     private void HitTargets(RaycastHit[] hits, Ray ray) {
         foreach(RaycastHit hit in hits) {
             bulletHolePool.MakeBulletHole(hit, ray);
             Agent agentHit = hit.collider.GetComponent<Agent>();
-            if(agentHit != null) {
+            if(agentHit == null)
+                return;
+            PlayerController player = agentHit as PlayerController;
+            if(player != null) {
+                player.TakeHit(ray.origin, damage);
+            }
+            else {
                 agentHit.TakeHit(damage);
             }
         }
-    }
+    } */
 
-    protected abstract RaycastHit[] GetBulletRayHits(out Ray ray);
+    protected abstract RaycastHit[] GetBulletRayHits();
+
+    public bool IsValidShotRay(IEnemyReactable reactable) {
+        RaycastHit[] hits = GetBulletRayHits();
+        if(hits == null)
+            return false;
+        foreach(RaycastHit hit in hits) {
+            if(hit.collider.GetComponent<IEnemyReactable>() == reactable) {
+                Debug.DrawLine(muzzle.position, reactable.Position, Color.green);
+                return true;
+            }
+        }
+        return false;
+    }
 
     private void ShootRaycast() {
         Vector3 shootingDir;
         if(isSighting)
             //shootingDir = cameraController.GetScreenCenterRay().direction;
-            shootingDir = transform.forward;
+            shootingDir = muzzle.forward;
         else {
             shootingDir = GetRandomDirectionWithAngle();
         }
+        shootingDir.y = 0;
         //Ray ray = cameraController.GetScreenCenterRay();
-        Ray ray = new Ray(transform.position, shootingDir);
+        Ray ray = new Ray(muzzle.position, shootingDir);
         List<RaycastHit> hits = Physics.RaycastAll(ray, gunRange, hittableMask).ToList();
         hits.Sort((a, b) => a.distance.CompareTo(b.distance));
         if(hits.Count >= 2 && hits[0].collider.GetComponent<Agent>() != null) {
@@ -138,12 +167,13 @@ public abstract class Gun : Weapon {
             hit.collider.GetComponent<Agent>().TakeHit(damage);
             bulletHolePool.MakeBulletHole(hit, ray);
         }
-        Debug.DrawRay(transform.position, shootingDir * gunRange, Color.red, 1f);
+        Debug.DrawRay(muzzle.position, shootingDir * gunRange, Color.red, 1f);
     }
 
     protected Vector3 GetRandomDirectionWithAngle() {
         float halfAngle = nonSightedAngle / 2f;
         float randomAngle = Random.Range(-halfAngle, halfAngle);
+        //Debug.Log(randomAngle);
         Quaternion rotation = Quaternion.AngleAxis(randomAngle, transform.up);
         Vector3 direction = rotation * transform.forward;
         return direction.normalized;

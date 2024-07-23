@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,9 +9,8 @@ public class Punch : Weapon {
     protected float remainedPunchDelay = 0;
     [SerializeField] private float attackDistance = 1.5f;
     [SerializeField] private float attackAngle = 10f;
+    public bool IsPunching { get; private set; } = false;
 
-    private void Awake() {
-    }
 
     private void Update() {
         remainedPunchDelay -= Time.deltaTime;
@@ -19,6 +19,8 @@ public class Punch : Weapon {
     }
 
     public bool TryStartHit() {
+        if(IsPunching)
+            return false;
         if(remainedPunchDelay <= Mathf.Epsilon) {
             StartHit();
             return true;
@@ -27,16 +29,16 @@ public class Punch : Weapon {
     }
 
     public void HitPunch() {
-        PlayerController player = null;
-        if(IsTargetInFront(ref player)) {
-            player.TakeHit(damage);
+        Player playerHit = null;
+        if(IsTargetInFront(ref playerHit)) {
+            playerHit.TakeHit(transform, damage);
         }
     }
 
-    private bool IsTargetInFront(ref PlayerController player) {
+    private bool IsTargetInFront(ref Player player) {
         Collider[] hitColliders = Physics.OverlapSphere(transform.position, attackDistance);
         foreach (Collider hitCollider in hitColliders) {
-            if((player = hitCollider.GetComponent<PlayerController>()) == null)
+            if((player = hitCollider.GetComponent<Player>()) == null)
                 continue;
             Vector3 directionToPlayer = (hitCollider.transform.position - transform.position).normalized;
             float angleBetween = Vector3.Angle(transform.forward, directionToPlayer);
@@ -53,5 +55,9 @@ public class Punch : Weapon {
 
     private void StartHit() {
         remainedPunchDelay = hitDelay;
+    }
+
+    public void UpdatePunchAnimState(bool isPunchAnimPlaying) {
+        IsPunching = isPunchAnimPlaying;
     }
 }

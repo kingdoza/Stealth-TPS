@@ -12,6 +12,7 @@ public class PlayerController3D : Agent, IEnemyReactable {
     public Vector3 Position => transform.position;
     public Vector3 HitOrigin => Position;
     public Transform Transform => transform;
+    private Gun gun;
 
     protected override void Awake() {
         base.Awake();

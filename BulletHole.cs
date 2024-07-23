@@ -41,7 +41,8 @@ public class BulletHole : PooledObject, IEnemyReactable {
 
     private IEnumerator LowerEnemyReactionAfterDelay() {
         yield return new WaitForSeconds(0.05f);
-        enemyReaction = EnemyReaction.Doubt;
+        if(enemyReaction != EnemyReaction.None)
+            enemyReaction = EnemyReaction.Doubt;
     }
 
     private void SetRandomHoleSprite() {

@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
-public class CameraController3D : MonoBehaviour {
+public class CameraController3D : MonoBehaviour, IStageRun {
     public float xAxis;
     public float yAxis;
     [SerializeField] private Transform target;
@@ -22,14 +22,21 @@ public class CameraController3D : MonoBehaviour {
     private Vector3 offset;
     private Vector3 targetRotation;
     private Vector3 currentVel;
+    public bool IsRunning { get; set; } = false;
 
     private void Awake() {
         rotationX = normalRotationX;
         distance = normalDistance;
         offset = normalOffset;
     }
+
+    public void Run() {
+        IsRunning = true;
+    }
     
     private void LateUpdate() {
+        if(IsRunning == false)
+            return;
         xAxis += Input.GetAxis("Mouse X")*rotSensitive;
         yAxis -= Input.GetAxis("Mouse Y")*rotSensitive;
         yAxis = Mathf.Clamp(yAxis, yRotationMin, yRotationMax);

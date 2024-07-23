@@ -2,7 +2,7 @@ using System.Collections;
 using UnityEngine;
 
 public enum MovingState {
-    Running = 1, Walking, Crouching, Stop
+    Running = 1, Walking, Crouching, Stop, CrouchStop
 }
 
 public abstract class Agent : MonoBehaviour {
@@ -19,11 +19,11 @@ public abstract class Agent : MonoBehaviour {
     protected MovingState movingState = MovingState.Stop;
     protected Vector3 movingDelta;
     protected bool isAiming = false;
-    protected Gun gun;
+    //protected Weapon weapon;
     protected Transform head;
 
     protected virtual void Awake() {
-        gun = GetComponentInChildren<Gun>();
+        //weapon = GetComponentInChildren<Weapon>();
         agentAnimator = GetComponent<AgentAnimator>();
         walkingSoundSource = GetComponent<AudioSource>();
         head = transform.Find("Head");
@@ -37,7 +37,7 @@ public abstract class Agent : MonoBehaviour {
 
     protected virtual void Update() {
         agentAnimator.SetMovingAnim(movingState, movingDelta);
-        agentAnimator.SetTurningAnim(transform.rotation.eulerAngles);
+        //agentAnimator.SetTurningAnim(transform.rotation.eulerAngles);
         agentAnimator.SetAimAnim(isAiming);
     }
 
@@ -51,15 +51,26 @@ public abstract class Agent : MonoBehaviour {
         return moveSpeed;
     }
 
+    private float GetFootstepDelay() {
+        float delay = movingState switch {
+            MovingState.Running => 0.3f,
+            MovingState.Walking => 0.5f,
+            MovingState.Crouching => 0.5f,
+            _ => 0
+        };
+        return delay;
+    }
+
     private IEnumerator KeepMakingFootstepSound() {
         while(gameObject) {
             Vector3 previousPos = transform.position;
-            yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(GetFootstepDelay());
             Vector3 currentPos = transform.position;
             float distanceWalked = Vector3.Distance(currentPos, previousPos);
             if(distanceWalked < 0.1f)
                 continue;
-            walkingSoundSource.volume = GetWalkingVolume(distanceWalked);
+            float volumeRate = Mathf.Approximately(GetFootstepDelay(), 0) ? 0 : (0.5f / GetFootstepDelay());
+            walkingSoundSource.volume = GetWalkingVolume(distanceWalked) * volumeRate;
             PlayWalkingSound();
         }
     }

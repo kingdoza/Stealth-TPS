@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-public class EnemyStateUI : MonoBehaviour {
+public class EnemyStateUI : MonoBehaviour, IStageRun {
     private IReadOnlyCollection<Enemy> enemyList;
     private List<RectTransform> stateList = new List<RectTransform>();
     [SerializeField] private GameObject statePrefab;
@@ -14,18 +14,26 @@ public class EnemyStateUI : MonoBehaviour {
         { EnemyReaction.Search, new Color(1, 0.5f, 0) },
         { EnemyReaction.Alert, Color.red }
     };
+    public bool IsRunning { get; set; } = false;
 
     private void Awake() {
         mainCamera = Camera.main;
+        //MakeEnemyStates();
+    }
+
+    // private void Start() {
+    //     MakeEnemyStates();
+    // }
+
+    public void Run() {
+        IsRunning = true;
         MakeEnemyStates();
     }
 
-    private void Start() {
-        
-    }
-
     private void Update() {
-        enemyList = GameManager.Instance.EnemyList;
+        if(IsRunning == false)
+            return;
+        enemyList = GameManager.Instance.stageManager.EnemyList;
         FollowEnemy();
         ShowReactionState();
     }
@@ -46,7 +54,7 @@ public class EnemyStateUI : MonoBehaviour {
         int i = 0;
         foreach (Enemy enemy in enemyList) {
             if(enemy.Reaction == EnemyReaction.None) {
-                stateList[i].gameObject.SetActive(false);
+                stateList[i++].gameObject.SetActive(false);
                 continue;
             }
             SetStateUIPosition(enemy, i);
@@ -57,7 +65,7 @@ public class EnemyStateUI : MonoBehaviour {
     }
 
     private void MakeEnemyStates() {
-        enemyList = GameManager.Instance.EnemyList;
+        enemyList = GameManager.Instance.stageManager.EnemyList;
         for(int i = 0; i < enemyList.Count; ++i) {
             GameObject stateInstance = Instantiate(statePrefab, Vector3.zero, statePrefab.GetComponent<RectTransform>().rotation);
             stateList.Add(stateInstance.GetComponent<RectTransform>());
